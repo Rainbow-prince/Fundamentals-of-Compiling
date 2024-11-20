@@ -12,7 +12,7 @@
 说明：Mini C的单词
 
 1)下面是语言的关键字:
-e1se if  int  float double  return void  do while for continue break 
+else if  int  float double  return void  do while for continue break
 
 所有的关键字都是保留字,并且必须是小写。
 
