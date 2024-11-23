@@ -30,3 +30,4 @@
 *.exe
 *.out
 *.app
+/Write_My_Compiler/learn_Lex/lex.yy.c
