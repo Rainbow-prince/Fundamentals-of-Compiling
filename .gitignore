@@ -30,4 +30,10 @@
 *.exe
 *.out
 *.app
+
+/Write_My_Compiler/lex.yy.c
+/Write_My_Compiler/learn_Lex/tryLex.l
+/Write_My_Compiler/learn_Lex/tryLex1.l
+/Write_My_Compiler/learn_Lex/tryLex2.l
 /Write_My_Compiler/learn_Lex/lex.yy.c
+/Write_My_Compiler/experiment1/lex.yy.c
