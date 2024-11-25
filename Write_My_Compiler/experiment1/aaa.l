@@ -9,7 +9,7 @@ letter		    [a-zA-Z]
 reservedWord	while|if|else|switch|case|int|main|using|namespace|std|printf
 id	            ({letter}|_)({letter}|{digit}|_)*
 num	            {digit}+
-operator	    \_|\+|\+\+|\+=|-|--|-=|->|\*|\*=|\/|\/=|\%|\%=|<|<=|>|>=|==|\!=|=|;|,|\(|\)|\[|\]|\{|\}|\/\/.*$|\/\*[^*]*\*+(?:[^/*][^*]*\*+)*\/
+operator	    \_|\+|\+\+|\+=|-|--|-=|->|\*|\*=|\/|\/=|\%|\%=|<|<=|>|>=|==|\!=|=|;|,|\(|\)|\[|\]|\{|\}|\/\/.*|\/\*[^*]*\*+(?:[^/*][^*]*\*+)*\/
 delimiter		[ \t\n\r]
 whitespace	    {delimiter}+
 semicolon       [\;]
