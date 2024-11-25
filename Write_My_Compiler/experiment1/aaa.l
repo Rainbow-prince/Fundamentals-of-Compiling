@@ -19,7 +19,6 @@ semicolon       [\;]
 str             \"[^"]*\"
 other		    .
 
-
 %%
 {reservedWord}  {count++;printf("%d\t(关键字,\'%s\')\n",count,yytext);}
 {id}            {count++;printf("%d\t(标识符,\'%s\')\n",count,yytext);}
@@ -33,9 +32,9 @@ other		    .
 
 "/*"                    { BEGIN(COMMENT); count++; commentBuffer[0] = '\0'; }
 <COMMENT>[^*\n]*        { strncat(commentBuffer, yytext, sizeof(commentBuffer) - strlen(commentBuffer) - 1); }
-<COMMENT>"*"+[^*/\n]*   { strncat(commentBuffer, yytext, sizeof(commentBuffer) - strlen(commentBuffer) - 1); }
+<COMMENT>"*"+[^/\n]*    { strncat(commentBuffer, yytext, sizeof(commentBuffer) - strlen(commentBuffer) - 1); }
+<COMMENT>\n             { strncat(commentBuffer, yytext, sizeof(commentBuffer) - strlen(commentBuffer) - 1); }
 <COMMENT>"*"+"/"        { BEGIN(INITIAL); printf("%d\t(特殊符号,\'/*%s*/\')\n",count,commentBuffer); }
-<COMMENT>\n              { strncat(commentBuffer, yytext, sizeof(commentBuffer) - strlen(commentBuffer) - 1); }
 
 %%
 int main(){
@@ -44,6 +43,6 @@ int main(){
 	yylex();
 	return 0;
 }
- int yywrap(){
+int yywrap(){
  	return 1;
- }
+}
