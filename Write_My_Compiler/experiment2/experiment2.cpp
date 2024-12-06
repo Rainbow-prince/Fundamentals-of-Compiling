@@ -15,8 +15,8 @@ std::stack<Statue_node> statueStack;
 
 void addJointMark() {
     // 在需要的地方，添加连接符号
-    std::string input_file = "E:/100-BUSSINESS_MAJOR/Project_Clion/Fundemental principal of compile/Fundamentals-of-Compiling/Write_My_Compiler/experiment2/regex_test_nifix.txt";
-    std::string output_file = "E:/100-BUSSINESS_MAJOR/Project_Clion/Fundemental principal of compile/Fundamentals-of-Compiling/Write_My_Compiler/experiment2/regex_test.txt";
+    std::string input_file = "E:/100-BUSSINESS_MAJOR/Project_Clion/Fundemental principal of compile/Fundamentals-of-Compiling/Write_My_Compiler/experiment2/regexNifix.txt";
+    std::string output_file = "E:/100-BUSSINESS_MAJOR/Project_Clion/Fundemental principal of compile/Fundamentals-of-Compiling/Write_My_Compiler/experiment2/regexNifix_jointMark.txt";
 
     std::ifstream file(input_file);
     // 检查文件是否成功打开
@@ -25,15 +25,26 @@ void addJointMark() {
         return;
     }
 
-    char ch;
+    char ch;  // 逐个扫描到的字符
+    std::string line;  // 存储处理过的字符
     std::ofstream outfile(output_file);
     while (file.get(ch)) {
-        if (isalpha(ch)) {
+        if (isalpha(ch) && line.back() != '('
+            && line.back() != '|' && line.back() != '/'
+            && line.back() != '\0') {
+            std::cout << "hh"<< std::endl;
+            line += '.';
+            line += ch;
+        }
+        else if(ch == '\n') {
+            outfile << line << std::endl;
+            line = "";
+        }else {
+            line += ch;
         }
 
     }
-    outfile << "Hello, World!" << std::endl;
-    outfile << 2024;
+    outfile << line << std::endl;
     outfile.close();
 
 }
