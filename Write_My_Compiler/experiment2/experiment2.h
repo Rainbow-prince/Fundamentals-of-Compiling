@@ -10,7 +10,7 @@
 # define  nodeMaxNumber 100
 
 #include <vector>
-
+#include <functional>
 
 struct Statue_node{
     std::vector<int> statue_pre;  //
@@ -18,6 +18,10 @@ struct Statue_node{
     std::vector<char> symbol; // 状态转换条件
 };
 
-void addJointMark();
+std::string addJointMark(const std::string& line, const std::string& file_output);
+void nifix_2_postfix();
 void output_NFA_table();
 void parseRegex(char, int&);
+void processFilebyLine(
+    const std::string&, const std::string&,
+    std::function<std::string(const std::string&, const std::string&)>);
