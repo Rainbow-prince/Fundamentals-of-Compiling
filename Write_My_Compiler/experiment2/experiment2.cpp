@@ -18,16 +18,8 @@ std::map<char, int> operator_priority;
 
 
 void processFilebyLine(
-    const std::string& filePath_input, const std::string& filePath_output,
-    std::function<std::string(const std::string&, const std::string&)> lineProcessor){
-
-    // 打开文件并清空内容
-    std::ofstream fileWrited(filePath_output, std::ios::out | std::ios::trunc);
-    if (!fileWrited.is_open()) {
-        std::cerr << "Failed to open the file: " << filePath_output << std::endl;
-        return;
-    }
-
+    bool saveAsFile, const std::string& filePath_input,
+    const std::string& filePath_output, std::function<std::string(const std::string&)> lineProcessor){
     // 打开要处理的文件 and 检查是否打开
     std::ifstream fileRead(filePath_input);
     if (!fileRead.is_open()) {
@@ -36,18 +28,34 @@ void processFilebyLine(
     }
 
 
-    std::string line;
-    while (std::getline(fileRead, line)) { // 逐行读取
-        if (line.empty()) continue;
-        std::string line_to_write = lineProcessor(line, filePath_output); // 调用传入的函数处理每行
-        fileWrited << line_to_write << std::endl;
+    std::string lineRead;  // 从文件中读取出来的行
+
+    if(saveAsFile) {  // 如果需要保存为文件
+        std::ofstream fileWrited(filePath_output);
+        if (!fileWrited.is_open()) {
+            std::cerr << "Failed to open the file: " << filePath_output << std::endl;
+            return;
+        }
+
+        while (std::getline(fileRead, lineRead)) { // 逐行读取
+            if (lineRead.empty()) continue;
+            std::string line_to_write = lineProcessor(lineRead); // 调用传入的函数处理每行
+            fileWrited << line_to_write << std::endl;
+        }
+        fileWrited.close();
+    }
+    else {
+        while (std::getline(fileRead, lineRead)) { // 逐行读取
+            if (lineRead.empty()) continue;
+            std::string line_to_write = lineProcessor(lineRead); // 调用传入的函数处理每行
+        }
     }
 
-    fileWrited.close();
+
     fileRead.close(); // 关闭文件
 }
 
-std::string addJointMark(const std::string& line, const std::string& file_output) {
+std::string addJointMark(const std::string& line) {
     // 在需要的地方，添加连接符号
 
     std::string line_to_write;  // 准备写入的行
@@ -118,6 +126,13 @@ std::string addJointMark(const std::string& line, const std::string& file_output
 //     line = "";
 // }
 
+std::string parseRegex(const std::string &line) {
+    std::cout<<"parseRegex"<<std::endl;
+    for (auto ch: line) {
+    }
+    return "Nothing";
+}
+
 void output_NFA_table() {
     tabulate::Table table;
     std::cout << std::endl << "[NFA Table]:" << std::endl;
@@ -142,13 +157,3 @@ void output_NFA_table() {
 }
 
 
-void parseRegex(char ch, int &statue) {
-    // 解析正则表达式，并分别存储在结构体数组node中
-    if (isalpha(ch)) {
-        node[statue].symbol.push_back(ch);
-        node[statue].statue_pre.push_back(statue);
-        node[statue].statue_next.push_back(statue+1);
-        statue++;
-    }else if (ch == '@') return;
-
-}
