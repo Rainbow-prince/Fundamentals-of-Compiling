@@ -23,6 +23,8 @@ int nodes_List_index = 0; // 用于检索 nodes_List
 int stateNum = 0; // 节点的编号
 // std::vector<Statue_node> statueNodes; // 存储状态机中的各个“节点”结构体
 tabulate::Table nfatable;
+char nfaList[nodeMaxNumber][3];
+int nfaListIndex = 0;
 
 
 void processFilebyLine(
@@ -166,7 +168,8 @@ std::string preprocessing_nifix_2_postfix(const std::string &line) {
 
 int getRegexOpPriority(char op) {
     // 获取 符号的优先级
-    if (op == '*') { return 5; } else if (op == '+')return 4;
+    if (op == '*') return 5;
+    else if (op == '+')return 4;
     else if (op == '?')return 3;
     else if (op == '.')return 2;
     else if (op == '|')return 1;
@@ -193,14 +196,13 @@ std::string parseRegex(const std::string &line) {
 
         if (ch == '.') {
             operation_conjunction(tempStack);
-        }
-        else if (ch == '|') {
+        } else if (ch == '|') {
             operation_selection(tempStack);
-        }else if (ch == '*') {
+        } else if (ch == '*') {
             operation_closure(tempStack);
-        }else if (ch == '+') {
+        } else if (ch == '+') {
             operation_positiveClosure(tempStack);
-        }else if (ch == '?') {
+        } else if (ch == '?') {
             operation_altinative(tempStack);
         }
     }
@@ -219,12 +221,25 @@ std::string parseRegex(const std::string &line) {
     // }
     // nfatable = tabulate::Table();  // 清空表
     nfatable.add_row({"Statue", "Symbol", "Statue"});
-    for(auto node: nodes_List) {
-        for(int i = 0; i < node.nextStates.size(); i++) {
-            // std::cout<<node.stateNum<<node.nextState_conditions[i]<<node.nextStates[i]->stateNum<<std::endl;
-            std::string symbol; symbol.push_back(node.nextState_conditions[i]);
+
+    for (auto node: nodes_List) {
+        for (int i = 0; i < node.nextStates.size(); i++) {
+            std::cout<<node.stateNum
+            << "->"
+            <<node.nextStates[i]->stateNum
+            << " [label =\" " << node.nextState_conditions[i] << " \" ]"
+            <<std::endl;
+
+            std::string symbol;
+            symbol.push_back(node.nextState_conditions[i]);
             std::string nextState = std::to_string(node.nextStates[i]->stateNum);
             nfatable.add_row({std::to_string(node.stateNum), symbol, nextState});
+
+            // 加入到List中，为了方便后面遍历
+            nfaList[nfaListIndex][0] = char(node.stateNum);
+            nfaList[nfaListIndex][1] = node.nextState_conditions[i];
+            nfaList[nfaListIndex][2] = char(node.nextStates[i]->stateNum);
+            nfaListIndex++;
         }
     }
     // travel_StateMachine(head, false, true);
@@ -347,7 +362,7 @@ void operation_conjunction(std::stack<std::variant<char, TempResult> > &tempStac
 
 /// 【选择】运算：需要两个操作数
 /// @param tempStack
-void operation_selection(std::stack<std::variant<char, TempResult>> &tempStack) {
+void operation_selection(std::stack<std::variant<char, TempResult> > &tempStack) {
     std::cout << "|" << std::endl;
     // 从栈中取出操作对象
     auto object_2 = tempStack.top(); // tempStack取出，放在操作符的右边
@@ -362,53 +377,52 @@ void operation_selection(std::stack<std::variant<char, TempResult>> &tempStack) 
     bool object_2_is_struct = !object_2_is_alphabet;
 
     // 根据对象类型，重新取得操作对象
-     if ( object_1_is_alphabet and object_2_is_alphabet) {
+    if (object_1_is_alphabet and object_2_is_alphabet) {
         // 【创建需要的数量的节点】
-         StateNode *node_1 = &nodes_List[nodes_List_index];
-         StateNode *node_2 = &nodes_List[nodes_List_index + 1];
-         StateNode *node_3 = &nodes_List[nodes_List_index + 2];
-         StateNode *node_4 = &nodes_List[nodes_List_index + 3];
-         StateNode *node_5 = &nodes_List[nodes_List_index + 4];
-         StateNode *node_6 = &nodes_List[nodes_List_index + 5];
-         node_1->stateNum = nodes_List_index;
-         node_2->stateNum = nodes_List_index+1;
-         node_3->stateNum = nodes_List_index+2;
-         node_4->stateNum = nodes_List_index+3;
-         node_5->stateNum = nodes_List_index+4;
-         node_6->stateNum = nodes_List_index+5;
+        StateNode *node_1 = &nodes_List[nodes_List_index];
+        StateNode *node_2 = &nodes_List[nodes_List_index + 1];
+        StateNode *node_3 = &nodes_List[nodes_List_index + 2];
+        StateNode *node_4 = &nodes_List[nodes_List_index + 3];
+        StateNode *node_5 = &nodes_List[nodes_List_index + 4];
+        StateNode *node_6 = &nodes_List[nodes_List_index + 5];
+        node_1->stateNum = nodes_List_index;
+        node_2->stateNum = nodes_List_index + 1;
+        node_3->stateNum = nodes_List_index + 2;
+        node_4->stateNum = nodes_List_index + 3;
+        node_5->stateNum = nodes_List_index + 4;
+        node_6->stateNum = nodes_List_index + 5;
 
-         nodes_List_index += 6;
+        nodes_List_index += 6;
 
-         // 【取出两个对象的值】
-         char ch_1 = std::get<char>(object_1);
-         char ch_2 = std::get<char>(object_2);
+        // 【取出两个对象的值】
+        char ch_1 = std::get<char>(object_1);
+        char ch_2 = std::get<char>(object_2);
 
-         // 【进行具体操作】
-         node_1->nextState_conditions.push_back(emptyState_char);
-         node_1->nextStates.push_back(node_2);
-         node_2->num_of_Daddy++;
-         node_2->nextState_conditions.push_back(ch_1);
-         node_2->nextStates.push_back(node_3);
-         node_3->num_of_Daddy++;
-         node_3->nextState_conditions.push_back(emptyState_char);
-         node_3->nextStates.push_back(node_6);
-         node_6->num_of_Daddy++;
-         node_1->nextState_conditions.push_back(emptyState_char);
-         node_1->nextStates.push_back(node_4);
-         node_4->num_of_Daddy++;
-         node_4->nextState_conditions.push_back(ch_2);
-         node_4->nextStates.push_back(node_5);
-         node_5->num_of_Daddy++;
-         node_5->nextState_conditions.push_back(emptyState_char);
-         node_5->nextStates.push_back(node_6);
-         node_6->num_of_Daddy++;
+        // 【进行具体操作】
+        node_1->nextState_conditions.push_back(emptyState_char);
+        node_1->nextStates.push_back(node_2);
+        node_2->num_of_Daddy++;
+        node_2->nextState_conditions.push_back(ch_1);
+        node_2->nextStates.push_back(node_3);
+        node_3->num_of_Daddy++;
+        node_3->nextState_conditions.push_back(emptyState_char);
+        node_3->nextStates.push_back(node_6);
+        node_6->num_of_Daddy++;
+        node_1->nextState_conditions.push_back(emptyState_char);
+        node_1->nextStates.push_back(node_4);
+        node_4->num_of_Daddy++;
+        node_4->nextState_conditions.push_back(ch_2);
+        node_4->nextStates.push_back(node_5);
+        node_5->num_of_Daddy++;
+        node_5->nextState_conditions.push_back(emptyState_char);
+        node_5->nextStates.push_back(node_6);
+        node_6->num_of_Daddy++;
 
-         // 【更新中间结果，并将结果入栈】
-         TempResult temp_result = {node_1, node_6};
-         std::variant<char, TempResult> result = temp_result;
-         tempStack.push(result);
-     }
-    else if (object_1_is_alphabet and object_2_is_struct) {
+        // 【更新中间结果，并将结果入栈】
+        TempResult temp_result = {node_1, node_6};
+        std::variant<char, TempResult> result = temp_result;
+        tempStack.push(result);
+    } else if (object_1_is_alphabet and object_2_is_struct) {
         // 【取出两个对象的值】
         char ch_1 = std::get<char>(object_1);
         TempResult temp_result = std::get<TempResult>(object_2);
@@ -419,9 +433,9 @@ void operation_selection(std::stack<std::variant<char, TempResult>> &tempStack) 
         StateNode *node_3 = &nodes_List[nodes_List_index + 2];
         StateNode *node_4 = &nodes_List[nodes_List_index + 3];
         node_1->stateNum = nodes_List_index;
-        node_2->stateNum = nodes_List_index+1;
-        node_3->stateNum = nodes_List_index+2;
-        node_4->stateNum = nodes_List_index+3;
+        node_2->stateNum = nodes_List_index + 1;
+        node_3->stateNum = nodes_List_index + 2;
+        node_4->stateNum = nodes_List_index + 3;
 
         nodes_List_index += 4;
 
@@ -447,8 +461,7 @@ void operation_selection(std::stack<std::variant<char, TempResult>> &tempStack) 
         temp_result = {node_1, node_4};
         std::variant<char, TempResult> result = temp_result;
         tempStack.push(result);
-    }
-    else if (object_1_is_struct and object_2_is_alphabet) {
+    } else if (object_1_is_struct and object_2_is_alphabet) {
         // 【取出两个对象的值】
         TempResult temp_result = std::get<TempResult>(object_1);
         char ch_2 = std::get<char>(object_2);
@@ -459,9 +472,9 @@ void operation_selection(std::stack<std::variant<char, TempResult>> &tempStack) 
         StateNode *node_3 = &nodes_List[nodes_List_index + 2];
         StateNode *node_4 = &nodes_List[nodes_List_index + 3];
         node_1->stateNum = nodes_List_index;
-        node_2->stateNum = nodes_List_index+1;
-        node_3->stateNum = nodes_List_index+2;
-        node_4->stateNum = nodes_List_index+3;
+        node_2->stateNum = nodes_List_index + 1;
+        node_3->stateNum = nodes_List_index + 2;
+        node_4->stateNum = nodes_List_index + 3;
 
         nodes_List_index += 4;
 
@@ -487,15 +500,13 @@ void operation_selection(std::stack<std::variant<char, TempResult>> &tempStack) 
         temp_result = {node_1, node_4};
         std::variant<char, TempResult> result = temp_result;
         tempStack.push(result);
-    }
-    else if (object_2_is_struct and object_2_is_struct) {
-
+    } else if (object_1_is_struct and object_2_is_struct) {
         // 【创建节点并编号】
         StateNode *node_1 = &nodes_List[nodes_List_index];
         StateNode *node_2 = &nodes_List[nodes_List_index + 1];
         node_1->stateNum = nodes_List_index;
-        node_2->stateNum = nodes_List_index+1;
-        nodes_List_index+=2;
+        node_2->stateNum = nodes_List_index + 1;
+        nodes_List_index += 2;
 
         // 【取出对象的值】
         TempResult temp_result_1 = std::get<TempResult>(object_1);
@@ -519,20 +530,231 @@ void operation_selection(std::stack<std::variant<char, TempResult>> &tempStack) 
         TempResult temp_result = {node_1, node_2};
         std::variant<char, TempResult> result = temp_result;
         tempStack.push(result);
-     }
-
-
+    }
 }
-void operation_closure(std::stack<std::variant<char, TempResult>> &tempStack) {
+
+void operation_closure(std::stack<std::variant<char, TempResult> > &tempStack) {
     std::cout << "*" << std::endl;
+    auto object = tempStack.top(); // tempStack取出
+    tempStack.pop();
+
+    bool object_is_alphabet = std::holds_alternative<char>(object);
+
+    if (object_is_alphabet) {
+        // 如果取出的是一个字符类型
+
+        // 【创建节点】
+        StateNode *node_1 = &nodes_List[nodes_List_index];
+        StateNode *node_2 = &nodes_List[nodes_List_index + 1];
+        StateNode *node_3 = &nodes_List[nodes_List_index + 2];
+        StateNode *node_4 = &nodes_List[nodes_List_index + 3];
+        node_1->stateNum = nodes_List_index;
+        node_2->stateNum = nodes_List_index + 1;
+        node_3->stateNum = nodes_List_index + 2;
+        node_4->stateNum = nodes_List_index + 3;
+
+        nodes_List_index += 4;
+
+
+        char ch = std::get<char>(object);
+        node_1->nextState_conditions.push_back(emptyState_char);
+        node_1->nextStates.push_back(node_4);
+        node_4->num_of_Daddy++;
+        node_1->nextState_conditions.push_back(emptyState_char);
+        node_1->nextStates.push_back(node_2);
+        node_2->num_of_Daddy++;
+
+        // node_2 到 node_3 的构建，放在判断语句中
+        node_2->nextState_conditions.push_back(ch);
+        node_2->nextStates.push_back(node_3);
+        node_3->num_of_Daddy++;
+
+        node_3->nextState_conditions.push_back(emptyState_char);
+        node_3->nextStates.push_back(node_2);
+        node_2->num_of_Daddy++; // 按照原来要遍历状态机的做法，放在这里都不对了，但是现在不遍历了，不管了
+        node_3->nextState_conditions.push_back(emptyState_char);
+        node_3->nextStates.push_back(node_4);
+        node_4->num_of_Daddy++;
+
+        // 更新中间节点并入栈
+        TempResult temp_result = {node_1, node_4};
+        std::variant<char, TempResult> result = temp_result;
+        tempStack.push(result);
+
+    } else {
+        // 取出来的是中间结果
+        StateNode *node_1 = &nodes_List[nodes_List_index];
+        StateNode *node_2 = &nodes_List[nodes_List_index + 1];
+        node_1->stateNum = nodes_List_index;
+        node_2->stateNum = nodes_List_index + 1;
+        nodes_List_index += 2;
+
+        TempResult temp_result = std::get<TempResult>(object);
+
+        node_1->nextState_conditions.push_back(emptyState_char);
+        node_1->nextStates.push_back(temp_result.head);
+        temp_result.head->num_of_Daddy++;
+        temp_result.tail->nextState_conditions.push_back(emptyState_char);
+        temp_result.tail->nextStates.push_back(node_2);
+        node_2->num_of_Daddy++;
+        temp_result.tail->nextState_conditions.push_back(emptyState_char);
+        temp_result.tail->nextStates.push_back(temp_result.head);
+        node_2->num_of_Daddy++;  // 虽然可能不对，但是先写着
+        node_1->nextState_conditions.push_back(emptyState_char);
+        node_1->nextStates.push_back(node_2);
+        node_2->num_of_Daddy++;
+
+        temp_result = {node_1, node_2};
+        std::variant<char, TempResult> result = temp_result;
+        tempStack.push(result);
+    }
 
 }
-void operation_positiveClosure(std::stack<std::variant<char, TempResult>> &tempStack){
+
+void operation_positiveClosure(std::stack<std::variant<char, TempResult> > &tempStack) {
     std::cout << "+" << std::endl;
+    auto object = tempStack.top(); // tempStack取出
+    tempStack.pop();
+
+    bool object_is_alphabet = std::holds_alternative<char>(object);
+
+    if (object_is_alphabet) {
+        // 创建节点
+        StateNode *node_1 = &nodes_List[nodes_List_index];
+        StateNode *node_2 = &nodes_List[nodes_List_index + 1];
+        StateNode *node_3 = &nodes_List[nodes_List_index + 2];
+        StateNode *node_4 = &nodes_List[nodes_List_index + 3];
+        StateNode *node_5 = &nodes_List[nodes_List_index + 4];
+        node_1->stateNum = nodes_List_index;
+        node_2->stateNum = nodes_List_index + 1;
+        node_3->stateNum = nodes_List_index + 2;
+        node_4->stateNum = nodes_List_index + 3;
+        node_5->stateNum = nodes_List_index + 4;
+        nodes_List_index += 5;
+
+        // 取出字符
+        char ch = std::get<char>(object);
+
+        // 进行运算
+        node_1->nextState_conditions.push_back(ch);
+        node_1->nextStates.push_back(node_2);
+        node_2->num_of_Daddy++;
+        node_2->nextState_conditions.push_back(emptyState_char);
+        node_2->nextStates.push_back(node_5);
+        node_5->num_of_Daddy++;
+        node_2->nextState_conditions.push_back(emptyState_char);
+        node_2->nextStates.push_back(node_3);
+        node_3->num_of_Daddy++;
+        node_3->nextState_conditions.push_back(ch);
+        node_3->nextStates.push_back(node_4);
+        node_4->num_of_Daddy++;
+        node_4->nextState_conditions.push_back(emptyState_char);
+        node_4->nextStates.push_back(node_3);
+        node_3->num_of_Daddy++;
+        node_4->nextState_conditions.push_back(emptyState_char);
+        node_4->nextStates.push_back(node_5);
+        node_5->num_of_Daddy++;
+
+        TempResult temp_result = {node_1, node_5};
+        std::variant<char, TempResult> result = temp_result;
+        tempStack.push(result);
+    }else {
+        StateNode *node_1 = &nodes_List[nodes_List_index];
+        node_1->stateNum = nodes_List_index;
+        nodes_List_index += 3;
+
+        TempResult temp_result_mid = std::get<TempResult>(object);
+        TempResult temp_result_front = temp_result_mid; // todo: 新多出来的要编号啊，还是涉及到遍历，先不管了
+
+        temp_result_front.tail->nextState_conditions.push_back(emptyState_char);
+        temp_result_front.tail->nextStates.push_back(node_1);
+        node_1->num_of_Daddy++;
+
+        temp_result_front.tail->nextState_conditions.push_back(emptyState_char);
+        temp_result_front.tail->nextStates.push_back(temp_result_mid.head);
+        temp_result_mid.head->num_of_Daddy++;
+
+        temp_result_mid.tail->nextState_conditions.push_back(emptyState_char);
+        temp_result_mid.tail->nextStates.push_back(node_1);
+        node_1->num_of_Daddy++;
+
+        temp_result_mid.tail->nextState_conditions.push_back(emptyState_char);
+        temp_result_mid.tail->nextStates.push_back(temp_result_front.head);
+        temp_result_front.head->num_of_Daddy++;
+
+        TempResult temp_result = {temp_result_front.head, node_1};
+        std::variant<char, TempResult> result = temp_result;
+        tempStack.push(result);
+
+        // 进行运算
+    }
+
+
 }
 
-void operation_altinative(std::stack<std::variant<char, TempResult>> &tempStack){
+void operation_altinative(std::stack<std::variant<char, TempResult> > &tempStack) {
     std::cout << "?" << std::endl;
+
+    auto object = tempStack.top();
+    tempStack.pop();
+
+    bool object_is_alphabet = std::holds_alternative<char>(object);
+    if (object_is_alphabet) {
+        StateNode *node_1 = &nodes_List[nodes_List_index];
+        StateNode *node_2 = &nodes_List[nodes_List_index + 1];
+        StateNode *node_3 = &nodes_List[nodes_List_index + 2];
+        StateNode *node_4 = &nodes_List[nodes_List_index + 3];
+        node_1->stateNum = nodes_List_index;
+        node_2->stateNum = nodes_List_index + 1;
+        node_3->stateNum = nodes_List_index + 2;
+        node_4->stateNum = nodes_List_index + 3;
+        nodes_List_index += 4;
+
+        char ch = std::get<char>(object);
+
+        node_1->nextState_conditions.push_back(emptyState_char);
+        node_1->nextStates.push_back(node_4);
+        node_4->num_of_Daddy++;
+        node_1->nextState_conditions.push_back(emptyState_char);
+        node_1->nextStates.push_back(node_2);
+        node_2->num_of_Daddy++;
+        node_2->nextState_conditions.push_back(ch);
+        node_2->nextStates.push_back(node_3);
+        node_3->num_of_Daddy++;
+        node_3->nextState_conditions.push_back(ch);
+        node_3->nextStates.push_back(node_4);
+        node_4->num_of_Daddy++;
+
+
+        TempResult temp_result = {node_1, node_4};
+        std::variant<char, TempResult> result = temp_result;
+        tempStack.push(result);
+    }else {
+        StateNode *node_1 = &nodes_List[nodes_List_index];
+        StateNode *node_2 = &nodes_List[nodes_List_index + 1];
+        node_1->stateNum = nodes_List_index;
+        node_2->stateNum = nodes_List_index + 1;
+        nodes_List_index += 2;
+
+        TempResult temp_result = std::get<TempResult>(object);
+
+        node_1->nextState_conditions.push_back(emptyState_char);
+        node_1->nextStates.push_back(node_2);
+        node_2->num_of_Daddy++;
+
+        node_1->nextState_conditions.push_back(emptyState_char);
+        node_1->nextStates.push_back(temp_result.head);
+        temp_result.head->num_of_Daddy++;
+
+        temp_result.tail->nextState_conditions.push_back(emptyState_char);
+        temp_result.tail->nextStates.push_back(node_2);
+        node_2->num_of_Daddy++;
+
+        temp_result = {node_1, node_2};
+        std::variant<char, TempResult> result = temp_result;
+        tempStack.push(result);
+    }
+
 }
 
 // todo:select遍历编号无误
@@ -558,25 +780,26 @@ auto travel_StateMachine(StateNode &current, bool number_node_while_travelling, 
         if (number_node_while_travelling) {
             // 如果是在编号
             current.stateNum = stateNum;
-            if(!current.nextState_conditions.empty())
-                std::cout<<current.stateNum<<'-'<<current.nextState_conditions[0]<<"->"<<std::endl;
+            if (!current.nextState_conditions.empty())
+                std::cout << current.stateNum << '-' << current.nextState_conditions[0] << "->" << std::endl;
             stateNum++;
         }
         if (write_1row_into_table and !current.nextState_conditions.empty()) {
             // nfatable
             std::cout << "write_1row_into_table" << std::endl;
             // todo: 不能说后面一旦没有子节点就马上停下来，因为还可能有多个父分支没有遍历到，不能在这里停止
-            for(int i = 0; i < current.nextState_conditions.size(); i++) {
-                std::string symbol; symbol.push_back(current.nextState_conditions[i]);
+            for (int i = 0; i < current.nextState_conditions.size(); i++) {
+                std::string symbol;
+                symbol.push_back(current.nextState_conditions[i]);
                 std::string nextState = std::to_string(current.nextStates[i]->stateNum);
                 nfatable.add_row({std::to_string(current.stateNum), symbol, nextState});
-                std::cout<<current.stateNum<<'-'<<current.nextState_conditions[i]<<"->"<<current.nextStates[i]->stateNum<<std::endl;
+                std::cout << current.stateNum << '-' << current.nextState_conditions[i] << "->" << current.nextStates[i]
+                        ->stateNum << std::endl;
             }
             // for (auto symbol_char: current.nextStatue_conditions) {
             //     std::string symbol;  symbol.push_back(symbol_char);
             //     nfatable.add_row({std::to_string(current.stateNum), symbol, std::to_string(current.nextStates)});
             // }
-
         }
     }
 
@@ -613,4 +836,12 @@ void output_NFA_table() {
     nfatable.format().border_color(tabulate::Color::yellow).font_color(tabulate::Color::yellow);
     nfatable[0][0].format().font_style({tabulate::FontStyle::bold}); // 为特定单元格设置粗体
     std::cout << nfatable << std::endl;
+
+    std::cout<<"use to verificate"<<std::endl;
+    size_t num_rows = nfatable.size();
+    size_t num_cols = nfatable[0].size();
+
+    std::cout<<num_cols<<std::endl;
+    std::cout<<num_rows<<std::endl;
+
 }
