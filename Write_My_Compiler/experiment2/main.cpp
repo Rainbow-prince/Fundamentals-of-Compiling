@@ -1,12 +1,8 @@
 //
 // Created by A123 on 12/5/2024.
 //
-
-#include <iostream>
-#include <fstream>
 #include <filesystem>
 #include <string>
-#include <cctype>  // 字符处理
 #include "experiment2.h"
 
 int main() {
@@ -20,7 +16,6 @@ int main() {
 
     processFilebyLine(true, rawfile, file_mid, preprocessing_addJointMark); // 添加连接符号
     processFilebyLine(true, file_mid, fileProcessed, preprocessing_nifix_2_postfix);
-    // processFilebyLine(false, fileProcessed, fileProcessed, parseRegex); // 添加连接符号
-
+    processFilebyLine(false, fileProcessed, fileProcessed, parseRegex); // 添加连接符号
     return 0;
 }

@@ -8,12 +8,22 @@
 #include <string>
 #include <cctype>  // 字符处理
 #include <stack>
+// #include <unordered_map>
 #include <map>
+#include <variant>
+#include <string.h>
 #include "tabulate/table.hpp"
 #include "experiment2.h"
 
-Statue_node node[nodeMaxNumber];
-std::stack<Statue_node> statueStack;
+StateNode nodes_List[nodeMaxNumber]; // 存储节点
+std::stack<StateNode *> travelStack; // 存储遍历过程中的分支，直到遍历到有多父亲节点的、暂时不能编号的节点，才从栈中取出
+std::map<StateNode *, int> nodes_visited_times_map; // 遍历中的节点访问次数
+
+int nodes_List_index = 0; // 用于检索 nodes_List
+int stateNum = 0; // 节点的编号
+// std::vector<Statue_node> statueNodes; // 存储状态机中的各个“节点”结构体
+tabulate::Table nfatable;
+
 
 void processFilebyLine(
     bool saveAsFile, const std::string &filePath_input,
@@ -25,11 +35,10 @@ void processFilebyLine(
         return;
     }
 
-
     std::string lineRead; // 从文件中读取出来的行
 
+    // 如果需要保存为文件
     if (saveAsFile) {
-        // 如果需要保存为文件
         std::ofstream fileWrited(filePath_output);
         if (!fileWrited.is_open()) {
             std::cerr << "Failed to open the file: " << filePath_output << std::endl;
@@ -42,16 +51,18 @@ void processFilebyLine(
             std::string line_to_write = lineProcessor(lineRead); // 调用传入的函数处理每行
             fileWrited << line_to_write << std::endl;
         }
+        // 关闭文件
         fileWrited.close();
-    } else {
-        while (std::getline(fileRead, lineRead)) {
-            // 逐行读取
-            if (lineRead.empty()) continue;
-            std::string line_to_write = lineProcessor(lineRead); // 调用传入的函数处理每行
-        }
+        fileRead.close();
+        return;
     }
 
-
+    // 如果不需要存储文件
+    while (std::getline(fileRead, lineRead)) {
+        // 逐行读取
+        if (lineRead.empty()) continue;
+        std::string line_to_write = lineProcessor(lineRead); // 调用传入的函数处理每行
+    }
     fileRead.close(); // 关闭文件
 }
 
@@ -82,7 +93,6 @@ std::string preprocessing_addJointMark(const std::string &line) {
     return line_to_return;
 }
 
-
 std::string preprocessing_nifix_2_postfix(const std::string &line) {
     std::string line_to_return;
     std::stack<char> postfixStack;
@@ -108,7 +118,7 @@ std::string preprocessing_nifix_2_postfix(const std::string &line) {
             }
             // 如果为右括号，一直弹栈，添加到 line_to_return中，直到弹出一个‘(’
             else if (ch == ')') {
-                while (1) {
+                while (true) {
                     // 遇到左括号，直接弹出，并终止掉此循环
                     if (postfixStack.top() == '(') {
                         postfixStack.pop();
@@ -156,106 +166,451 @@ std::string preprocessing_nifix_2_postfix(const std::string &line) {
 
 int getRegexOpPriority(char op) {
     // 获取 符号的优先级
-    switch (op) {
-        case '*': return 5;
-        case '+': return 4;
-        case '?': return 3;
-        case '.': return 2;
-        case '|': return 1;
-        default: ;
+    if (op == '*') { return 5; } else if (op == '+')return 4;
+    else if (op == '?')return 3;
+    else if (op == '.')return 2;
+    else if (op == '|')return 1;
+    else return 0;
+}
+
+std::string parseRegex(const std::string &line) {
+    /*
+     * 遍历行内的每一个字符，构造自动机，并将代表节点的结构体，存储在一个统一的栈statueStack中
+     * 分析过程中暂存中间结果的栈，在本函数域内创建，为联合类型，包括char和Statue_node类型
+     */
+
+    // TempResult temp_result{};
+    std::stack<std::variant<char, TempResult> > tempStack; // 存储中间变量的栈
+
+    // 遍历行内的每一个字符
+    for (char ch: line) {
+        // 如果是字母，直接入栈
+        if (isalpha(ch)) {
+            std::variant<char, TempResult> v = ch;
+            tempStack.push(v);
+            continue;
+        }
+
+        if (ch == '.') {
+            operation_conjunction(tempStack);
+        }
+        else if (ch == '|') {
+            operation_selection(tempStack);
+        }else if (ch == '*') {
+            operation_closure(tempStack);
+        }else if (ch == '+') {
+            operation_positiveClosure(tempStack);
+        }else if (ch == '?') {
+            operation_altinative(tempStack);
+        }
+    }
+
+    std::cout << "has constructed the automachine" << std::endl;
+
+    // 编号
+    // auto head = *std::get<TempResult>(tempStack.top()).head; // 获得状态机的头节点
+    // head.stateNum = 0;
+    // head.num_of_Daddy = 1; // 手动设置为1，不然无法遍历
+    // travel_StateMachine(head, true, false); // 进行编号
+
+    // 输出表 再遍历一次状态机，需要先清空访问次数
+    // for (auto &pair: nodes_visited_times_map) {
+    //     pair.second = 0; // 将每个值设置为 0
+    // }
+    // nfatable = tabulate::Table();  // 清空表
+    nfatable.add_row({"Statue", "Symbol", "Statue"});
+    for(auto node: nodes_List) {
+        for(int i = 0; i < node.nextStates.size(); i++) {
+            // std::cout<<node.stateNum<<node.nextState_conditions[i]<<node.nextStates[i]->stateNum<<std::endl;
+            std::string symbol; symbol.push_back(node.nextState_conditions[i]);
+            std::string nextState = std::to_string(node.nextStates[i]->stateNum);
+            nfatable.add_row({std::to_string(node.stateNum), symbol, nextState});
+        }
+    }
+    // travel_StateMachine(head, false, true);
+    output_NFA_table();
+
+    // 为了统一接口
+    return "return string to unify the interface";
+}
+
+
+void operation_conjunction(std::stack<std::variant<char, TempResult> > &tempStack) {
+    // std::cout << "." << std::endl;
+    // 【连接操作】 要取出两个操作对象
+    auto object_2 = tempStack.top(); // tempStack取出，放在操作的右边
+    tempStack.pop();
+    auto object_1 = tempStack.top(); // tempStack取出，放在操作的左边
+    tempStack.pop();
+    // 判断两个操作对象的类型：用于下面的分支判断
+    bool object_1_is_alphabet = std::holds_alternative<char>(object_1);
+    bool object_2_is_alphabet = std::holds_alternative<char>(object_2);
+    bool object_1_is_struct = !object_1_is_alphabet;
+    bool object_2_is_struct = !object_2_is_alphabet;
+
+    // 【连接的对象】都是字符
+    if (object_1_is_alphabet and object_2_is_alphabet) {
+        StateNode *node_1 = &nodes_List[nodes_List_index];
+        StateNode *node_2 = &nodes_List[nodes_List_index + 1];
+        StateNode *node_3 = &nodes_List[nodes_List_index + 2];
+
+        node_1->stateNum = nodes_List_index;
+        node_2->stateNum = nodes_List_index + 1;
+        node_3->stateNum = nodes_List_index + 2;
+
+        nodes_List_index += 3;
+
+        // 【取出两个对象的值】
+        char ch_1 = std::get<char>(object_1);
+        char ch_2 = std::get<char>(object_2);
+        // std::cout << ch_1 << ch_2 << std::endl;
+
+        // 【2.进行连接操作】
+        node_1->nextState_conditions.push_back(ch_1);
+        node_1->nextStates.push_back(node_2); // 连接起节点
+        node_2->num_of_Daddy++;
+        node_2->nextState_conditions.push_back(ch_2);
+        node_2->nextStates.push_back(node_3);
+        node_3->num_of_Daddy++;
+
+        // 【3.存入结构体数组】
+        // nodesList[nodesCount] = node_1;
+        // nodesList[nodesCount+1] = node_2;
+        // nodesList[nodesCount+2] = node_3;
+
+        // 【4.更新中间结果并入栈】
+        TempResult temp_result = {node_1, node_3};
+        std::variant<char, TempResult> result = temp_result;
+        tempStack.push(result);
+    }
+    // 【连接的对象】字符 中间结果
+    else if (object_1_is_alphabet and object_2_is_struct) {
+        StateNode *node_1 = &nodes_List[nodes_List_index];
+        node_1->stateNum = nodes_List_index;
+
+        // 【1.取出两个对象的值】
+        char ch_1 = std::get<char>(object_1);
+        TempResult temp_result = std::get<TempResult>(object_2);
+
+        // 【2.进行连接操作】头变尾不变
+        node_1->nextState_conditions.push_back(ch_1);
+        node_1->nextStates.push_back(temp_result.head);
+        temp_result.head->num_of_Daddy++;
+
+        // 【3.存入结构体数组】
+        // nodesList[nodesCount] = node_1;
+        nodes_List_index++;
+
+        // 【4.更新中间结果并入栈】
+        temp_result.head = node_1;
+        std::variant<char, TempResult> result = temp_result;
+        tempStack.push(result);
+    }
+    // 【连接的对象】中间结果 字符
+    else if (object_1_is_struct and object_2_is_alphabet) {
+        StateNode *node_2 = &nodes_List[nodes_List_index];
+        node_2->stateNum = nodes_List_index;
+
+        // 【1.取出两个对象的值】
+        TempResult temp_result = std::get<TempResult>(object_1);
+        char ch_2 = std::get<char>(object_2);
+
+        // 【2.进行连接操作】尾变头不变
+        temp_result.tail->nextStates.push_back(node_2);
+        temp_result.tail->nextState_conditions.push_back(ch_2);
+        node_2->num_of_Daddy++;
+
+        // 【3.存入结构体数组】
+        // nodesList[nodesCount] = node_2;
+        nodes_List_index++;
+
+        // 【4.更新中间结果并入栈】
+        temp_result.tail = node_2;
+        std::variant<char, TempResult> result = temp_result;
+        tempStack.push(result);
+    }
+    // 【连接的对象】中间结果 中间结果
+    else {
+        TempResult temp_result1 = std::get<TempResult>(object_1);
+        TempResult temp_result2 = std::get<TempResult>(object_2);
+
+        temp_result1.tail->nextStates.push_back(temp_result2.head);
+        temp_result1.tail->nextState_conditions.push_back(emptyState_char);
+
+        temp_result2.head->num_of_Daddy++;
+
+        TempResult temp_result = {temp_result1.head, temp_result2.tail};
+        std::variant<char, TempResult> result = temp_result;
+        tempStack.push(result);
     }
 }
 
-// std::string parseRegex(const std::string &lineRead) {
-//     const int lineLen = lineRead.length();
-//     int statue = 0; // todo: statue在下面可能要考虑从栈中取得
-//     int i, j = 0;
-//     tabulate::Table tableNFA;
-//     tableNFA.add_row({"statue", "symbole", "statue"});
-//     tableNFA.format().border_color(tabulate::Color::yellow).font_color(tabulate::Color::yellow);
-//
-//     for (i = 0; i < lineLen - 1; i++) {
-//         // 确定ch_now和ch_ahead
-//         j = i + 1;
-//         char ch_now = lineRead[i];
-//         char ch_ahead = lineRead[j];
-//         std::cout << ch_now << ch_ahead << std::endl;
-//
-//         // 进行解析【核心】
-//         if ((ch_now == '?' or ch_now == '*' or ch_now == '+') and (
-//                 std::isalpha(ch_ahead))) {
-//             std::cout << "conjunction" << std::endl << std::endl;
-//         } else if (std::isalpha(ch_now)) {
-//             // 如果ch_now是个字母，再进一步判断后面有什么
-//             if (ch_ahead == '.') {
-//                 // 必然是后面连接着字母，不可能是符号了
-//                 // std::cout << "add statue" << std::endl;
-//                 // std::cout << statue << "-" << ch_now << "->" << statue+1 << std::endl;
-//                 write_1row_into_table(statue, ch_now, statue + 1, tableNFA);
-//                 statue++;
-//             } else if (ch_ahead == '*') {
-//                 std::cout << "closure" << std::endl << std::endl;
-//                 // 简单版本实现
-//                 write_1row_into_table(statue, '@', statue + 1, tableNFA);
-//                 write_1row_into_table(statue + 1, ch_now, statue + 2, tableNFA);
-//                 write_1row_into_table(statue + 2, '@', statue + 1, tableNFA);
-//                 write_1row_into_table(statue + 2, '@', statue + 3, tableNFA);
-//                 write_1row_into_table(statue, '@', statue + 3, tableNFA);
-//                 statue += 3;
-//             } else if (ch_ahead == '+') {
-//                 std::cout << "positive closure" << std::endl << std::endl;
-//             } else if (ch_ahead == '?') {
-//                 std::cout << "alternative" << std::endl << std::endl;
-//             } else if (ch_ahead == '|') {
-//                 std::cout << "select" << std::endl << std::endl;
-//                 write_1row_into_table(statue, '@', statue + 1, tableNFA);
-//                 write_1row_into_table(statue + 1, ch_now, statue + 2, tableNFA);
-//                 write_1row_into_table(statue + 2, '@', statue + 5, tableNFA);
-//                 write_1row_into_table(statue, '@', statue + 3, tableNFA);
-//                 // todo: 如果是嵌套，比如(a|b*)这种直接相加的做法应该要出问题了，不知道怎么做了
-//             }
-//         } else if (ch_now == '.') {
-//             if (ch_ahead == '(') {
-//                 std::cout << "next one is select" << std::endl << std::endl;
-//             } else if (std::isalpha(ch_ahead) and j == lineLen - 1) {
-//                 // 连接的字母是最后一个字母
-//                 // std::cout << "the last alphabet" << std::endl << std::endl;
-//                 write_1row_into_table(statue, ch_ahead, statue + 1, tableNFA);
-//             }
-//         }
-//         std::cout << std::endl;
-//     }
-//     std::cout << "---------------------" << std::endl;
-//     std::cout << tableNFA << std::endl;
-//     // 重置状态
-//     statue = 0;
-//     return "Nothing";
-// }
-//
-// void write_1row_into_table(int statue1, char symbol, int statue2, tabulate::Table table) {
-//     table.add_row({
-//         std::to_string(statue1),
-//         std::string(1, symbol),
-//         std::to_string(statue2)
-//     });
-// }
+/// 【选择】运算：需要两个操作数
+/// @param tempStack
+void operation_selection(std::stack<std::variant<char, TempResult>> &tempStack) {
+    std::cout << "|" << std::endl;
+    // 从栈中取出操作对象
+    auto object_2 = tempStack.top(); // tempStack取出，放在操作符的右边
+    tempStack.pop();
+    auto object_1 = tempStack.top(); // tempStack取出，放在操作符的左边
+    tempStack.pop();
+
+    // 判断操作对象的类型
+    bool object_1_is_alphabet = std::holds_alternative<char>(object_1);
+    bool object_2_is_alphabet = std::holds_alternative<char>(object_2);
+    bool object_1_is_struct = !object_1_is_alphabet;
+    bool object_2_is_struct = !object_2_is_alphabet;
+
+    // 根据对象类型，重新取得操作对象
+     if ( object_1_is_alphabet and object_2_is_alphabet) {
+        // 【创建需要的数量的节点】
+         StateNode *node_1 = &nodes_List[nodes_List_index];
+         StateNode *node_2 = &nodes_List[nodes_List_index + 1];
+         StateNode *node_3 = &nodes_List[nodes_List_index + 2];
+         StateNode *node_4 = &nodes_List[nodes_List_index + 3];
+         StateNode *node_5 = &nodes_List[nodes_List_index + 4];
+         StateNode *node_6 = &nodes_List[nodes_List_index + 5];
+         node_1->stateNum = nodes_List_index;
+         node_2->stateNum = nodes_List_index+1;
+         node_3->stateNum = nodes_List_index+2;
+         node_4->stateNum = nodes_List_index+3;
+         node_5->stateNum = nodes_List_index+4;
+         node_6->stateNum = nodes_List_index+5;
+
+         nodes_List_index += 6;
+
+         // 【取出两个对象的值】
+         char ch_1 = std::get<char>(object_1);
+         char ch_2 = std::get<char>(object_2);
+
+         // 【进行具体操作】
+         node_1->nextState_conditions.push_back(emptyState_char);
+         node_1->nextStates.push_back(node_2);
+         node_2->num_of_Daddy++;
+         node_2->nextState_conditions.push_back(ch_1);
+         node_2->nextStates.push_back(node_3);
+         node_3->num_of_Daddy++;
+         node_3->nextState_conditions.push_back(emptyState_char);
+         node_3->nextStates.push_back(node_6);
+         node_6->num_of_Daddy++;
+         node_1->nextState_conditions.push_back(emptyState_char);
+         node_1->nextStates.push_back(node_4);
+         node_4->num_of_Daddy++;
+         node_4->nextState_conditions.push_back(ch_2);
+         node_4->nextStates.push_back(node_5);
+         node_5->num_of_Daddy++;
+         node_5->nextState_conditions.push_back(emptyState_char);
+         node_5->nextStates.push_back(node_6);
+         node_6->num_of_Daddy++;
+
+         // 【更新中间结果，并将结果入栈】
+         TempResult temp_result = {node_1, node_6};
+         std::variant<char, TempResult> result = temp_result;
+         tempStack.push(result);
+     }
+    else if (object_1_is_alphabet and object_2_is_struct) {
+        // 【取出两个对象的值】
+        char ch_1 = std::get<char>(object_1);
+        TempResult temp_result = std::get<TempResult>(object_2);
+
+        // 【创建节点】
+        StateNode *node_1 = &nodes_List[nodes_List_index];
+        StateNode *node_2 = &nodes_List[nodes_List_index + 1];
+        StateNode *node_3 = &nodes_List[nodes_List_index + 2];
+        StateNode *node_4 = &nodes_List[nodes_List_index + 3];
+        node_1->stateNum = nodes_List_index;
+        node_2->stateNum = nodes_List_index+1;
+        node_3->stateNum = nodes_List_index+2;
+        node_4->stateNum = nodes_List_index+3;
+
+        nodes_List_index += 4;
+
+        // 【进行具体的运算】
+        node_1->nextState_conditions.push_back(emptyState_char);
+        node_1->nextStates.push_back(node_2);
+        node_2->num_of_Daddy++;
+        node_2->nextState_conditions.push_back(ch_1);
+        node_2->nextStates.push_back(node_3);
+        node_3->num_of_Daddy++;
+        node_3->nextState_conditions.push_back(emptyState_char);
+        node_3->nextStates.push_back(node_4);
+        node_4->num_of_Daddy++;
+        node_1->nextState_conditions.push_back(emptyState_char);
+        node_1->nextStates.push_back(temp_result.head);
+        temp_result.head->num_of_Daddy++;
+
+        temp_result.tail->nextState_conditions.push_back(emptyState_char);
+        temp_result.tail->nextStates.push_back(node_4);
+        node_4->num_of_Daddy++;
+
+        // 【更新中间结果并入栈】
+        temp_result = {node_1, node_4};
+        std::variant<char, TempResult> result = temp_result;
+        tempStack.push(result);
+    }
+    else if (object_1_is_struct and object_2_is_alphabet) {
+        // 【取出两个对象的值】
+        TempResult temp_result = std::get<TempResult>(object_1);
+        char ch_2 = std::get<char>(object_2);
+
+        // 【创建节点并编号】
+        StateNode *node_1 = &nodes_List[nodes_List_index];
+        StateNode *node_2 = &nodes_List[nodes_List_index + 1];
+        StateNode *node_3 = &nodes_List[nodes_List_index + 2];
+        StateNode *node_4 = &nodes_List[nodes_List_index + 3];
+        node_1->stateNum = nodes_List_index;
+        node_2->stateNum = nodes_List_index+1;
+        node_3->stateNum = nodes_List_index+2;
+        node_4->stateNum = nodes_List_index+3;
+
+        nodes_List_index += 4;
+
+        // 【具体运算】
+        node_1->nextState_conditions.push_back(emptyState_char);
+        node_1->nextStates.push_back(node_2);
+        node_2->num_of_Daddy++;
+        node_2->nextState_conditions.push_back(ch_2);
+        node_2->nextStates.push_back(node_3);
+        node_3->num_of_Daddy++;
+        node_3->nextState_conditions.push_back(emptyState_char);
+        node_3->nextStates.push_back(node_4);
+        node_4->num_of_Daddy++;
+        node_1->nextState_conditions.push_back(emptyState_char);
+        node_1->nextStates.push_back(temp_result.head);
+        temp_result.head->num_of_Daddy++;
+
+        temp_result.tail->nextState_conditions.push_back(emptyState_char);
+        temp_result.tail->nextStates.push_back(node_4);
+        node_4->num_of_Daddy++;
+
+        // 【更新中间结果并入栈】
+        temp_result = {node_1, node_4};
+        std::variant<char, TempResult> result = temp_result;
+        tempStack.push(result);
+    }
+    else if (object_2_is_struct and object_2_is_struct) {
+
+        // 【创建节点并编号】
+        StateNode *node_1 = &nodes_List[nodes_List_index];
+        StateNode *node_2 = &nodes_List[nodes_List_index + 1];
+        node_1->stateNum = nodes_List_index;
+        node_2->stateNum = nodes_List_index+1;
+        nodes_List_index+=2;
+
+        // 【取出对象的值】
+        TempResult temp_result_1 = std::get<TempResult>(object_1);
+        TempResult temp_result_2 = std::get<TempResult>(object_2);
+
+        // 【进行具体的运算】
+        node_1->nextState_conditions.push_back(emptyState_char);
+        node_1->nextStates.push_back(temp_result_1.head);
+        temp_result_1.head->num_of_Daddy++;
+        temp_result_1.tail->nextState_conditions.push_back(emptyState_char);
+        temp_result_1.tail->nextStates.push_back(node_2);
+        node_2->num_of_Daddy++;
+        node_1->nextState_conditions.push_back(emptyState_char);
+        node_1->nextStates.push_back(temp_result_2.head);
+        temp_result_2.head->num_of_Daddy++;
+        temp_result_2.tail->nextState_conditions.push_back(emptyState_char);
+        temp_result_2.tail->nextStates.push_back(node_2);
+        node_2->num_of_Daddy++;
+
+        // 【更新中间结果并入栈】
+        TempResult temp_result = {node_1, node_2};
+        std::variant<char, TempResult> result = temp_result;
+        tempStack.push(result);
+     }
 
 
-// void output_NFA_table() {
-//     tabulate::Table table;
-//     std::cout << std::endl << "[NFA Table]:" << std::endl;
-//     table.add_row({"Statue\\symbol", "a", "b", "..."}); // 添加表头
-//     table.add_row({"1", "{2}", "{3}", "..."}); // 添加表头
-//     table.add_row({"...", "...", "...", "..."}); // 添加表头
-// for (auto & i : node) {
-//     // if (i.symbol[1] == '\0') break;  // symbol中没有任何内容，就不要输入了
-//     table.add_row({
-//         std::to_string(i.statue_pre[0]),
-//         std::string(1, i.symbol[0]),
-//         std::to_string(i.statue_next[0])
-//     });
+}
+void operation_closure(std::stack<std::variant<char, TempResult>> &tempStack) {
+    std::cout << "*" << std::endl;
+
+}
+void operation_positiveClosure(std::stack<std::variant<char, TempResult>> &tempStack){
+    std::cout << "+" << std::endl;
+}
+
+void operation_altinative(std::stack<std::variant<char, TempResult>> &tempStack){
+    std::cout << "?" << std::endl;
+}
+
+// todo:select遍历编号无误
+
+auto travel_StateMachine(StateNode &current, bool number_node_while_travelling, bool write_1row_into_table) -> void {
+    // 遍历状态机
+    nodes_visited_times_map[&current]++; // 访问次数++
+
+    // 如果该节点被访问的次数 相等于 该节点的父节点数量，说明所有父分支都已经被编号了，此节点可以编号
+    bool this_node_canbe_number = nodes_visited_times_map[&current] == current.num_of_Daddy;
+    // 该节点有多个子节点
+    // bool this_node_has_multi_children = current.nextStates.size() > 1;
+
+    if (!this_node_canbe_number) {
+        // 如果本节点尚且不可编号，前面还有一些分支要编号，将他们先从栈中提取出来
+
+        auto another_node = travelStack.top();
+        travelStack.pop();
+        // 另一个节点将被遍历
+        travel_StateMachine(*another_node, number_node_while_travelling, write_1row_into_table);
+    } else {
+        // 如果是可以完成本节点的遍历的，则函数继续运行，执行遍历中的操作
+        if (number_node_while_travelling) {
+            // 如果是在编号
+            current.stateNum = stateNum;
+            if(!current.nextState_conditions.empty())
+                std::cout<<current.stateNum<<'-'<<current.nextState_conditions[0]<<"->"<<std::endl;
+            stateNum++;
+        }
+        if (write_1row_into_table and !current.nextState_conditions.empty()) {
+            // nfatable
+            std::cout << "write_1row_into_table" << std::endl;
+            // todo: 不能说后面一旦没有子节点就马上停下来，因为还可能有多个父分支没有遍历到，不能在这里停止
+            for(int i = 0; i < current.nextState_conditions.size(); i++) {
+                std::string symbol; symbol.push_back(current.nextState_conditions[i]);
+                std::string nextState = std::to_string(current.nextStates[i]->stateNum);
+                nfatable.add_row({std::to_string(current.stateNum), symbol, nextState});
+                std::cout<<current.stateNum<<'-'<<current.nextState_conditions[i]<<"->"<<current.nextStates[i]->stateNum<<std::endl;
+            }
+            // for (auto symbol_char: current.nextStatue_conditions) {
+            //     std::string symbol;  symbol.push_back(symbol_char);
+            //     nfatable.add_row({std::to_string(current.stateNum), symbol, std::to_string(current.nextStates)});
+            // }
+
+        }
+    }
+
+    // 【递归边界】如果是最后一个节点了，那就返回
+    if (current.nextStates.empty()) {
+        std::cout << "travel over" << std::endl;
+        return;
+    }
+
+    // 把有可能的多分支，放入栈中，如果没有多分子，自然不会运行
+    for (int i = current.nextStates.size() - 1; i >= 1; i--) {
+        // 0号不需要加入栈，因为它接下来就要被访问
+        if (current.nextStates[i]->stateNum != -1) {
+            // 如果子节点已经被编号过了（为了应对循环的情况）
+            continue;
+        }
+        travelStack.push(current.nextStates[i]);
+    }
+    travel_StateMachine(*current.nextStates[0], number_node_while_travelling, write_1row_into_table);
+}
+
+// get_epsilon_closure()
+
+// void number_node_while_travelling(StateNode &current) {
+//     // 遍历过程中给节点编号
+//     current.stateNum = stateNum;
+//     std::cout<<stateNum<<'-'<<current.nextStatue_conditions[0]<<"->"<<std::endl;
+//     stateNum++;
 // }
-// table.format().border_color(tabulate::Color::yellow).font_color(tabulate::Color::yellow);
-// table[0][0].format().font_style({tabulate::FontStyle::bold}); // 为特定单元格设置粗体
-//     std::cout << table << std::endl;
-// }
+
+void output_NFA_table() {
+    // tabulate::Table table;
+    std::cout << std::endl << "[NFA Table]:" << std::endl;
+    nfatable.format().border_color(tabulate::Color::yellow).font_color(tabulate::Color::yellow);
+    nfatable[0][0].format().font_style({tabulate::FontStyle::bold}); // 为特定单元格设置粗体
+    std::cout << nfatable << std::endl;
+}
