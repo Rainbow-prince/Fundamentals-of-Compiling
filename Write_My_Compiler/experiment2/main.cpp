@@ -16,6 +16,6 @@ int main() {
 
     processFilebyLine(true, rawfile, file_mid, preprocessing_addJointMark); // 添加连接符号
     processFilebyLine(true, file_mid, fileProcessed, preprocessing_nifix_2_postfix);
-    processFilebyLine(false, fileProcessed, fileProcessed, parseRegex); // 添加连接符号
+    processFilebyLine(false, fileProcessed, fileProcessed, Regex2NFA); // 添加连接符号
     return 0;
 }

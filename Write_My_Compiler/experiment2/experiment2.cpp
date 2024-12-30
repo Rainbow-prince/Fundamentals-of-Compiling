@@ -176,7 +176,7 @@ int getRegexOpPriority(char op) {
     else return 0;
 }
 
-std::string parseRegex(const std::string &line) {
+std::string Regex2NFA(const std::string &line) {
     /*
      * 遍历行内的每一个字符，构造自动机，并将代表节点的结构体，存储在一个统一的栈statueStack中
      * 分析过程中暂存中间结果的栈，在本函数域内创建，为联合类型，包括char和Statue_node类型
@@ -224,22 +224,24 @@ std::string parseRegex(const std::string &line) {
 
     for (auto node: nodes_List) {
         for (int i = 0; i < node.nextStates.size(); i++) {
-            std::cout<<node.stateNum
-            << "->"
-            <<node.nextStates[i]->stateNum
-            << " [label =\" " << node.nextState_conditions[i] << " \" ]"
-            <<std::endl;
+            std::cout << node.stateNum
+                    << "->"
+                    << node.nextStates[i]->stateNum
+                    << " [label =\" " << node.nextState_conditions[i] << " \" ]"
+                    << std::endl;
+
+            // 加入到List中，为了方便后面遍历
+            nfaList[nfaListIndex][0] = char(node.stateNum+'0');
+            nfaList[nfaListIndex][1] = node.nextState_conditions[i];
+            nfaList[nfaListIndex][2] = char(node.nextStates[i]->stateNum+'0');
+            // std::cout<<nfaList[nfaListIndex][0]<<nfaList[nfaListIndex][1]<<nfaList[nfaListIndex][2]<<std::endl;
+            nfaListIndex++;
 
             std::string symbol;
             symbol.push_back(node.nextState_conditions[i]);
             std::string nextState = std::to_string(node.nextStates[i]->stateNum);
             nfatable.add_row({std::to_string(node.stateNum), symbol, nextState});
 
-            // 加入到List中，为了方便后面遍历
-            nfaList[nfaListIndex][0] = char(node.stateNum);
-            nfaList[nfaListIndex][1] = node.nextState_conditions[i];
-            nfaList[nfaListIndex][2] = char(node.nextStates[i]->stateNum);
-            nfaListIndex++;
         }
     }
     // travel_StateMachine(head, false, true);
@@ -363,7 +365,7 @@ void operation_conjunction(std::stack<std::variant<char, TempResult> > &tempStac
 /// 【选择】运算：需要两个操作数
 /// @param tempStack
 void operation_selection(std::stack<std::variant<char, TempResult> > &tempStack) {
-    std::cout << "|" << std::endl;
+    // std::cout << "|" << std::endl;
     // 从栈中取出操作对象
     auto object_2 = tempStack.top(); // tempStack取出，放在操作符的右边
     tempStack.pop();
@@ -534,7 +536,7 @@ void operation_selection(std::stack<std::variant<char, TempResult> > &tempStack)
 }
 
 void operation_closure(std::stack<std::variant<char, TempResult> > &tempStack) {
-    std::cout << "*" << std::endl;
+    // std::cout << "*" << std::endl;
     auto object = tempStack.top(); // tempStack取出
     tempStack.pop();
 
@@ -580,7 +582,6 @@ void operation_closure(std::stack<std::variant<char, TempResult> > &tempStack) {
         TempResult temp_result = {node_1, node_4};
         std::variant<char, TempResult> result = temp_result;
         tempStack.push(result);
-
     } else {
         // 取出来的是中间结果
         StateNode *node_1 = &nodes_List[nodes_List_index];
@@ -599,7 +600,7 @@ void operation_closure(std::stack<std::variant<char, TempResult> > &tempStack) {
         node_2->num_of_Daddy++;
         temp_result.tail->nextState_conditions.push_back(emptyState_char);
         temp_result.tail->nextStates.push_back(temp_result.head);
-        node_2->num_of_Daddy++;  // 虽然可能不对，但是先写着
+        node_2->num_of_Daddy++; // 虽然可能不对，但是先写着
         node_1->nextState_conditions.push_back(emptyState_char);
         node_1->nextStates.push_back(node_2);
         node_2->num_of_Daddy++;
@@ -608,11 +609,10 @@ void operation_closure(std::stack<std::variant<char, TempResult> > &tempStack) {
         std::variant<char, TempResult> result = temp_result;
         tempStack.push(result);
     }
-
 }
 
 void operation_positiveClosure(std::stack<std::variant<char, TempResult> > &tempStack) {
-    std::cout << "+" << std::endl;
+    // std::cout << "+" << std::endl;
     auto object = tempStack.top(); // tempStack取出
     tempStack.pop();
 
@@ -658,7 +658,7 @@ void operation_positiveClosure(std::stack<std::variant<char, TempResult> > &temp
         TempResult temp_result = {node_1, node_5};
         std::variant<char, TempResult> result = temp_result;
         tempStack.push(result);
-    }else {
+    } else {
         StateNode *node_1 = &nodes_List[nodes_List_index];
         node_1->stateNum = nodes_List_index;
         nodes_List_index += 3;
@@ -688,12 +688,10 @@ void operation_positiveClosure(std::stack<std::variant<char, TempResult> > &temp
 
         // 进行运算
     }
-
-
 }
 
 void operation_altinative(std::stack<std::variant<char, TempResult> > &tempStack) {
-    std::cout << "?" << std::endl;
+    // std::cout << "?" << std::endl;
 
     auto object = tempStack.top();
     tempStack.pop();
@@ -729,7 +727,7 @@ void operation_altinative(std::stack<std::variant<char, TempResult> > &tempStack
         TempResult temp_result = {node_1, node_4};
         std::variant<char, TempResult> result = temp_result;
         tempStack.push(result);
-    }else {
+    } else {
         StateNode *node_1 = &nodes_List[nodes_List_index];
         StateNode *node_2 = &nodes_List[nodes_List_index + 1];
         node_1->stateNum = nodes_List_index;
@@ -754,7 +752,6 @@ void operation_altinative(std::stack<std::variant<char, TempResult> > &tempStack
         std::variant<char, TempResult> result = temp_result;
         tempStack.push(result);
     }
-
 }
 
 // todo:select遍历编号无误
@@ -786,15 +783,15 @@ auto travel_StateMachine(StateNode &current, bool number_node_while_travelling, 
         }
         if (write_1row_into_table and !current.nextState_conditions.empty()) {
             // nfatable
-            std::cout << "write_1row_into_table" << std::endl;
+            // std::cout << "write_1row_into_table" << std::endl;
             // todo: 不能说后面一旦没有子节点就马上停下来，因为还可能有多个父分支没有遍历到，不能在这里停止
             for (int i = 0; i < current.nextState_conditions.size(); i++) {
                 std::string symbol;
                 symbol.push_back(current.nextState_conditions[i]);
                 std::string nextState = std::to_string(current.nextStates[i]->stateNum);
                 nfatable.add_row({std::to_string(current.stateNum), symbol, nextState});
-                std::cout << current.stateNum << '-' << current.nextState_conditions[i] << "->" << current.nextStates[i]
-                        ->stateNum << std::endl;
+                // std::cout << current.stateNum << '-' << current.nextState_conditions[i] << "->" << current.nextStates[i]
+                //         ->stateNum << std::endl;
             }
             // for (auto symbol_char: current.nextStatue_conditions) {
             //     std::string symbol;  symbol.push_back(symbol_char);
@@ -837,11 +834,10 @@ void output_NFA_table() {
     nfatable[0][0].format().font_style({tabulate::FontStyle::bold}); // 为特定单元格设置粗体
     std::cout << nfatable << std::endl;
 
-    std::cout<<"use to verificate"<<std::endl;
-    size_t num_rows = nfatable.size();
-    size_t num_cols = nfatable[0].size();
+    // std::cout << "use to verificate" << std::endl;
+    // size_t num_rows = nfatable.size();
+    // size_t num_cols = nfatable[0].size();
 
-    std::cout<<num_cols<<std::endl;
-    std::cout<<num_rows<<std::endl;
-
+    std::cout << num_cols << std::endl;
+    std::cout << num_rows << std::endl;
 }

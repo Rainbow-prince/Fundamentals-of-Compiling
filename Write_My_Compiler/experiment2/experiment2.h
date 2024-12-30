@@ -36,7 +36,7 @@ std::string preprocessing_nifix_2_postfix(const std::string &line);
 
 int getRegexOpPriority(char);
 
-std::string parseRegex(const std::string &line);
+std::string Regex2NFA(const std::string &line);
 
 void operation_conjunction(std::stack<std::variant<char, TempResult>> &);
 void operation_selection(std::stack<std::variant<char, TempResult>> &);
